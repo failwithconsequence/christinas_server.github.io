@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laute sortieren mit Prüfung</title>
+<style>
+:root{
+  --bg:#EAF1F7;--ink:#1D2733;--card:#FFFFFF;--sel:#BFDDFB;
+  --s:#E6B000;--u:#2F6FB5;--z:#2E8B57;--m:#7A4EA8;--ok:#1E8E4E;--bad:#C62828;
+  color-scheme:light;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#131B24;--ink:#EEF3F8;--card:#1E2935;--sel:#2B4F78;
+    --s:#FFD54A;--u:#6FA8E8;--z:#54C48A;--m:#B491E0;--ok:#54C48A;--bad:#F08080;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131B24;--ink:#EEF3F8;--card:#1E2935;--sel:#2B4F78;
+  --s:#FFD54A;--u:#6FA8E8;--z:#54C48A;--m:#B491E0;--ok:#54C48A;--bad:#F08080;color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'Poppins',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-weight:500;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+[hidden]{display:none!important}
+:focus-visible{outline:4px solid var(--u);outline-offset:3px}
+
+main{display:grid;gap:14px;padding:14px;max-width:1280px;margin:0 auto;
+  grid-template-columns:1fr;grid-template-areas:"head" "msg" "pool" "boxes"}
+@media (min-aspect-ratio:5/4){
+  main{grid-template-columns:minmax(270px,34%) 1fr;grid-template-areas:"head head" "msg msg" "pool boxes";align-items:start}
+}
+header{grid-area:head;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+h1{margin:0;font-size:1.7rem;font-weight:600;flex:1}
+#count{font-weight:600;font-size:1.2rem}
+button{font:inherit;font-weight:600;color:var(--ink);background:var(--card);border:3px solid var(--ink);border-radius:12px;box-shadow:0 4px 0 var(--ink);cursor:pointer}
+.btn{padding:.5em 1.1em;font-size:1.05rem}
+.btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+#check:disabled{opacity:.4;cursor:default;box-shadow:none}
+#check:not(:disabled){border-color:var(--ok);box-shadow:0 4px 0 var(--ok)}
+
+#msg{grid-area:msg;margin:0;min-height:3.4rem;padding:10px 16px;display:flex;align-items:center;
+  background:var(--card);border:3px solid var(--ink);border-radius:12px;font-size:1.2rem;font-weight:600}
+#msg.ok{border-color:var(--ok)}#msg.ok::before{content:"✓";color:var(--ok);margin-right:.5em;font-size:1.4em}
+#msg.bad{border-color:var(--bad)}#msg.bad::before{content:"✗";color:var(--bad);margin-right:.5em;font-size:1.4em}
+
+#pool{grid-area:pool;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:flex-start;
+  padding:14px;min-height:130px;background:var(--card);border:3px dashed var(--ink);border-radius:20px}
+
+.tile{--lw:10.5;display:inline-flex;align-items:center;justify-content:center;
+  min-width:clamp(3.4rem,8vmin,4.6rem);height:clamp(3.4rem,8vmin,4.6rem);padding:0 .45em;
+  font-size:clamp(1.8rem,4.4vmin,2.5rem);line-height:1;touch-action:none;position:relative}
+.tile.sel{background:var(--sel);transform:translateY(-4px);box-shadow:0 8px 0 var(--ink)}
+.tile.lift{opacity:.25}
+.tile.in{border-color:var(--c);box-shadow:0 4px 0 var(--c)}
+.tile.ok,.tile.no{border-width:4px}
+.tile.ok{border-color:var(--ok);box-shadow:0 4px 0 var(--ok)}
+.tile.no{border-color:var(--bad);box-shadow:0 4px 0 var(--bad);background:color-mix(in srgb,var(--bad) 22%,var(--card))}
+.tile.ok::after,.tile.no::after{position:absolute;top:-12px;right:-10px;width:1.7rem;height:1.7rem;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:1.05rem;font-weight:600;color:var(--card);line-height:1}
+.tile.ok::after{content:"✓";background:var(--ok)}
+.tile.no::after{content:"✗";background:var(--bad)}
+.ghost{position:fixed;left:0;top:0;z-index:50;pointer-events:none;box-shadow:0 10px 0 var(--ink);background:var(--sel)}
+
+#boxes{grid-area:boxes;display:grid;gap:12px;grid-template-columns:repeat(3,1fr);grid-template-areas:"s u z" "m m m"}
+@media (max-width:640px){#boxes{grid-template-columns:repeat(2,1fr);grid-template-areas:"s u" "z z" "m m"}}
+.box{grid-area:var(--a);display:flex;flex-direction:column;padding:10px 12px 14px;
+  border:5px solid var(--c);border-radius:16px;background:color-mix(in srgb,var(--c) 13%,var(--card))}
+.box h2{margin:0 0 10px;font-size:1.25rem;font-weight:600;--lw:10.5}
+.slot{display:flex;flex-wrap:wrap;gap:12px 8px;align-content:flex-start;flex:1;min-height:4.6rem}
+body.has-sel .box{outline:4px dashed var(--c);outline-offset:3px;cursor:pointer}
+body.has-sel #pool{outline:4px dashed var(--ink);outline-offset:3px;cursor:pointer}
+
+.l{display:inline-block;position:relative;width:.36em;height:.75em;vertical-align:baseline;margin:0 .01em}
+.l svg{display:block;width:100%;height:100%;overflow:visible}
+.l path{fill:none;stroke:currentColor;stroke-width:var(--lw,9)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+#end{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(0,0,0,.5);padding:20px}
+#end div{background:var(--card);border:5px solid var(--ok);border-radius:24px;padding:28px 34px;text-align:center;max-width:440px}
+#end h2{margin:0 0 10px;font-size:2.2rem;font-weight:600}
+#end p{margin:0 0 18px;font-size:1.25rem}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Laute sortieren</h1>
+    <div id="count" aria-live="polite"></div>
+    <button class="btn" id="check" type="button" disabled>Prüfen</button>
+    <button class="btn" id="again" type="button">Neu starten</button>
+  </header>
+  <p id="msg" role="status"></p>
+  <section id="pool" aria-label="Laute zum Sortieren" tabindex="0"></section>
+  <div id="boxes">
+    <section class="box" data-k="s" style="--c:var(--s);--a:s" tabindex="0" role="button" aria-label="Kasten Selbstlaute"><h2>Selbstlaute</h2><div class="slot"></div></section>
+    <section class="box" data-k="u" style="--c:var(--u);--a:u" tabindex="0" role="button" aria-label="Kasten Umlaute"><h2>Umlaute</h2><div class="slot"></div></section>
+    <section class="box" data-k="z" style="--c:var(--z);--a:z" tabindex="0" role="button" aria-label="Kasten Zwielaute"><h2>Zwielaute</h2><div class="slot"></div></section>
+    <section class="box" data-k="m" style="--c:var(--m);--a:m" tabindex="0" role="button" aria-label="Kasten Mitlaute"><h2>Mitlaute</h2><div class="slot"></div></section>
+  </div>
+</main>
+
+<div id="end" hidden>
+  <div role="dialog" aria-modal="true" aria-labelledby="endt">
+    <h2 id="endt">Geschafft!</h2>
+    <p>Alle Laute liegen im richtigen Kasten.</p>
+    <p id="tries"></p>
+    <button class="btn" id="again2" type="button">Noch einmal</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var LET={s:['a','e','i','o','u','ie'],u:['ä','ö','ü'],z:['au','äu','eu','ei'],m:'bcdfghjklmnpqrstvwxz'.split('').concat(['ch','sch'])};
+  var START='Tippe einen Laut an und dann auf einen Kasten. Du kannst den Laut auch in einen Kasten ziehen.';
+  var TOTAL=0;for(var k in LET)TOTAL+=LET[k].length;
+
+  /* kleines l mit gebogenem Fuß als Grafik */
+  var LSVG='<span class="l"><svg viewBox="0 0 36 75" aria-hidden="true"><path d="M10 0V58C10 66 15 70 27 70"/></svg><span class="sr">l</span></span>';
+  function L(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/l/g,LSVG)}
+  function lfix(root){
+    var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),n=[];
+    while(w.nextNode())n.push(w.currentNode);
+    n.forEach(function(t){
+      var p=t.parentNode;
+      if(!p||!t.nodeValue.includes('l')||p.closest('script,style,.l'))return;
+      var sp=document.createElement('span');sp.innerHTML=L(t.nodeValue);
+      t.replaceWith.apply(t,Array.prototype.slice.call(sp.childNodes));
+    });
+  }
+
+  var $=function(s){return document.querySelector(s)};
+  var pool=$('#pool'),msg=$('#msg'),cnt=$('#count'),end=$('#end'),chk=$('#check');
+  var sel=null,drag=null,tries=0,stamp=0;
+
+  function say(t,c){msg.className=c||'';msg.innerHTML=L(t)}
+  function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var x=a[i];a[i]=a[j];a[j]=x}return a}
+
+  function upd(){
+    var n=pool.children.length;
+    cnt.textContent=(TOTAL-n)+' von '+TOTAL+' sortiert';
+    chk.disabled=n>0;
+  }
+  function idle(){
+    var n=pool.children.length;
+    if(n===TOTAL)say(START);
+    else if(n===0)say('Alle Laute liegen in einem Kasten. Tippe auf Prüfen.');
+    else say(n===1?'Noch 1 Laut im Vorrat.':'Noch '+n+' Laute im Vorrat.');
+  }
+
+  function select(t){
+    var same=t&&t===sel;
+    if(sel)sel.classList.remove('sel');
+    sel=same?null:t;
+    if(sel){sel.classList.add('sel');say('Wohin gehört '+sel.dataset.t+'? Tippe auf einen Kasten.')}
+    else idle();
+    document.body.classList.toggle('has-sel',!!sel);
+  }
+
+  /* Laut in einen Kasten legen oder in den Vorrat zurück */
+  function place(tile,target){
+    var isBox=target.classList.contains('box');
+    var host=isBox?target.querySelector('.slot'):pool;
+    if(tile.parentNode!==host)host.appendChild(tile);
+    tile.className='tile'+(isBox?' in':'');
+    if(isBox)tile.style.setProperty('--c','var(--'+target.dataset.k+')');
+    else tile.style.removeProperty('--c');
+    sel=null;document.body.classList.remove('has-sel');
+    upd();idle();
+  }
+
+  function check(){
+    tries++;
+    var wrong=0;
+    document.querySelectorAll('.box .tile').forEach(function(t){
+      var good=t.dataset.k===t.parentNode.parentNode.dataset.k;
+      t.classList.remove('ok','no');
+      t.classList.add(good?'ok':'no');
+      if(!good)wrong++;
+    });
+    if(wrong===0){
+      say('Alles richtig!','ok');
+      setTimeout(function(){
+        $('#tries').innerHTML=L(tries===1?'Gleich beim ersten Mal!':'Prüfungen: '+tries);
+        end.hidden=false;$('#again2').focus();
+      },1100);
+    }else{
+      say(wrong+' Fehler. Verschiebe die roten Laute und tippe noch einmal auf Prüfen.','bad');
+    }
+  }
+
+  function mkTile(k,t){
+    var b=document.createElement('button');
+    b.type='button';b.className='tile';b.dataset.k=k;b.dataset.t=t;
+    b.setAttribute('aria-label','Laut '+t);b.innerHTML=L(t);
+
+    b.addEventListener('pointerdown',function(e){
+      try{b.setPointerCapture(e.pointerId)}catch(_){}
+      drag={t:b,x:e.clientX,y:e.clientY,moved:false,g:null};
+    });
+    b.addEventListener('pointermove',function(e){
+      if(!drag||drag.t!==b)return;
+      if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>10){
+        drag.moved=true;
+        var r=b.getBoundingClientRect();drag.w=r.width;drag.h=r.height;
+        drag.g=b.cloneNode(true);drag.g.className='tile ghost';
+        drag.g.style.width=r.width+'px';drag.g.style.height=r.height+'px';
+        document.body.appendChild(drag.g);b.classList.add('lift');
+        if(sel)select(null);
+      }
+      if(drag.moved)drag.g.style.transform='translate('+(e.clientX-drag.w/2)+'px,'+(e.clientY-drag.h/2)+'px) scale(1.12)';
+    });
+    function stop(e,cancel){
+      if(!drag||drag.t!==b)return;
+      var d=drag;drag=null;stamp=Date.now();
+      if(d.moved){
+        d.g.remove();b.classList.remove('lift');
+        if(!cancel){
+          var el=document.elementFromPoint(e.clientX,e.clientY),tg=el&&(el.closest('.box')||el.closest('#pool'));
+          if(tg)place(b,tg);
+        }
+      }else if(!cancel){select(b)}
+    }
+    b.addEventListener('pointerup',function(e){stop(e,false)});
+    b.addEventListener('pointercancel',function(e){stop(e,true)});
+    b.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();select(b)}
+    });
+    return b;
+  }
+
+  document.querySelectorAll('.box,#pool').forEach(function(el){
+    el.addEventListener('click',function(){if(sel&&Date.now()-stamp>80)place(sel,el)});
+    el.addEventListener('keydown',function(e){
+      if(sel&&(e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();place(sel,el)}
+    });
+  });
+
+  function build(){
+    pool.innerHTML='';
+    document.querySelectorAll('.slot').forEach(function(s){s.innerHTML=''});
+    tries=0;sel=null;document.body.classList.remove('has-sel');
+    var all=[];for(var k in LET)LET[k].forEach(function(t){all.push([k,t])});
+    shuffle(all).forEach(function(p){pool.appendChild(mkTile(p[0],p[1]))});
+    end.hidden=true;upd();say(START);
+  }
+
+  chk.addEventListener('click',check);
+  $('#again').addEventListener('click',build);
+  $('#again2').addEventListener('click',build);
+  lfix(document.querySelector('main'));lfix($('#end'));
+  build();
+})();
+</script>
+</body>
+</html>
